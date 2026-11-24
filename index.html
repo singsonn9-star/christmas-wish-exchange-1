@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Christmas Wish Exchange</title>
+<style>
+:root{--red:#a52d36;--green:#176b4a;--cream:#fffaf1;--ink:#24332d;--muted:#68766f;--gold:#d6a94b}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#f8f1e5,#edf4ed);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+header{background:linear-gradient(120deg,#14583e,#1c754f);color:white;padding:28px 18px 34px;text-align:center;position:relative;overflow:hidden}
+header:after{content:"✦  ❄  ✧  ❄  ✦";position:absolute;inset:auto 0 8px;color:#ffffff55;letter-spacing:18px;font-size:20px}
+h1{margin:0;font-size:clamp(27px,5vw,42px)}header p{margin:8px 0 0;color:#e5f4e9}
+main{max-width:850px;margin:22px auto;padding:0 14px 48px}
+.card{background:white;border:1px solid #e6e8df;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 8px 24px #2848320d}
+h2{font-size:20px;margin:0 0 14px;color:var(--green)}
+label{display:block;font-weight:650;font-size:14px;margin:12px 0 6px}
+input,select{width:100%;padding:12px 13px;border:1px solid #ccd6cd;border-radius:10px;font:inherit;background:#fff}
+button{border:0;border-radius:11px;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer;background:var(--green);color:white;margin-top:12px}
+button.secondary{background:#edf3ee;color:var(--green);border:1px solid #d4e2d7}
+button.danger{background:#fff0ef;color:#9c2c35;border:1px solid #f1d0ce}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:180px}
+.note{font-size:13px;color:var(--muted);line-height:1.5}.pill{display:inline-block;border-radius:99px;padding:5px 9px;background:#edf5ef;color:var(--green);font-size:12px;font-weight:700}
+.hidden{display:none!important}.participant{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #edf0eb}.participant:last-child{border:0}
+.result{background:#fff9e9;border:1px solid #f0dfb6;border-radius:14px;padding:18px;text-align:center;margin-top:14px}
+.gift{font-size:30px;margin:6px}.big{font-size:25px;font-weight:800;color:var(--red)}
+hr{border:0;border-top:1px solid #edf0eb;margin:18px 0}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:0 15px 28px}
+</style>
+</head>
+<body>
+<header><h1>🎄 Christmas Wish Exchange</h1><p>One person. One wish. One lovely surprise. 🎁</p></header>
+<main>
+  <div class="card">
+    <h2>✨ Create a group</h2>
+    <label for="groupName">Christmas group name</label>
+    <input id="groupName" placeholder="e.g. Christmas with Friends 2026">
+    <label for="organizer">Organizer name</label>
+    <input id="organizer" placeholder="Your name">
+    <button onclick="createGroup()">Create group</button>
+    <p class="note">The organizer can see who has submitted a wish, but cannot see the draw results.</p>
+  </div>
+
+  <div class="card">
+    <h2>🎁 Join or open a group</h2>
+    <label for="groupCode">Group code</label>
+    <div class="row"><input id="groupCode" placeholder="Enter group code"><button class="secondary" onclick="openGroup()">Open group</button></div>
+    <p class="note">Demo version: groups are saved only in this browser on this device.</p>
+  </div>
+
+  <section id="workspace" class="card hidden">
+    <div class="row" style="align-items:center"><div><h2 id="activeName">Your group</h2><span class="pill" id="activeCode"></span></div><div style="text-align:right"><span class="pill" id="status">Collecting wishes</span></div></div>
+    <hr>
+    <h2>👥 Join this group</h2>
+    <label for="memberName">Participant name</label><input id="memberName" placeholder="Enter your name">
+    <label for="wish">Your one Christmas wish</label><input id="wish" placeholder="e.g. A cozy hoodie">
+    <button onclick="joinGroup()">Join and submit my wish</button>
+    <p class="note">Each participant can submit one wish. After submitting, the wish cannot be edited in this demo.</p>
+    <hr>
+    <div id="organizerPanel" class="hidden">
+      <h2>📋 Organizer view — submission status</h2>
+      <div id="roster"></div>
+      <p class="note">This view shows names and whether a wish was submitted. It does not reveal the random assignments.</p>
+      <button id="drawBtn" onclick="runDraw()">Start random draw</button>
+      <p id="drawHint" class="note"></p>
+      <hr>
+    </div>
+    <h2>🔐 Participant view</h2>
+    <label for="viewer">I am</label><select id="viewer" onchange="showAssignment()"><option value="">Choose your name</option></select>
+    <div id="assignment"></div>
+  </section>
+  <div class="card">
+    <h2>How the exchange works</h2>
+    <p class="note">1. The organizer creates a group and shares its code.<br>2. Everyone joins and submits exactly one wish.<br>3. The organizer checks the submission list.<br>4. Once everyone has submitted, the organizer starts the draw.<br>5. Each participant sees only the gift item assigned to them — never the wish owner's name.</p>
+  </div>
+</main>
+<footer>Christmas Wish Exchange · Demo prototype · For a real shared launch, connect a secure online database and authentication.</footer>
+<script>
+let groups = JSON.parse(localStorage.getItem('cwe_groups') || '{}');
+let currentCode = '';
+function save(){localStorage.setItem('cwe_groups',JSON.stringify(groups))}
+function code(){return Math.random().toString(36).slice(2,8).toUpperCase()}
+function createGroup(){
+ const name=document.getElementById('groupName').value.trim(), org=document.getElementById('organizer').value.trim();
+ if(!name||!org){alert('Please enter a group name and organizer name.');return}
+ let c=code();while(groups[c])c=code();
+ groups[c]={name,organizer:org,members:[],drawn:false,assignments:{}};
+ save();currentCode=c;render();
+}
+function openGroup(){
+ const c=document.getElementById('groupCode').value.trim().toUpperCase();
+ if(!groups[c]){alert('Group not found in this browser. Check the code.');return}
+ currentCode=c;render();
+}
+function render(){
+ const g=groups[currentCode];if(!g)return;
+ document.getElementById('workspace').classList.remove('hidden');
+ document.getElementById('activeName').textContent=g.name;
+ document.getElementById('activeCode').textContent='GROUP CODE: '+currentCode;
+ document.getElementById('status').textContent=g.drawn?'Draw complete':'Collecting wishes';
+ document.getElementById('organizerPanel').classList.remove('hidden');
+ document.getElementById('roster').innerHTML=g.members.length?g.members.map(m=>`<div class="participant"><strong>${esc(m.name)}</strong><span class="pill">Wish submitted</span></div>`).join(''):'<p class="note">No participants yet.</p>';
+ const all=g.members.length>=2;
+ document.getElementById('drawBtn').disabled=!all||g.drawn;
+ document.getElementById('drawHint').textContent=g.drawn?'The draw is complete. Assignments are hidden from the organizer.':all?'All listed participants have submitted. You can start the draw.':'At least two participants are needed. Add participants before drawing.';
+ const sel=document.getElementById('viewer');sel.innerHTML='<option value="">Choose your name</option>'+g.members.map((m,i)=>`<option value="${i}">${esc(m.name)}</option>`).join('');
+ document.getElementById('assignment').innerHTML='';
+}
+function joinGroup(){
+ const g=groups[currentCode];if(!g)return;
+ if(g.drawn){alert('The draw has already happened.');return}
+ const name=document.getElementById('memberName').value.trim(),wish=document.getElementById('wish').value.trim();
+ if(!name||!wish){alert('Please enter your name and one wish.');return}
+ if(g.members.some(m=>m.name.toLowerCase()===name.toLowerCase())){alert('That name has already joined this group.');return}
+ g.members.push({name,wish});save();
+ document.getElementById('memberName').value='';document.getElementById('wish').value='';
+ render();alert('Your wish has been submitted!');
+}
+function runDraw(){
+ const g=groups[currentCode];if(!g||g.drawn||g.members.length<2)return;
+ // Random derangement: shuffle until nobody receives their own wish.
+ let order=g.members.map((_,i)=>i),tries=0;
+ do{for(let i=order.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]}tries++}
+ while(order.some((v,i)=>v===i)&&tries<10000);
+ if(order.some((v,i)=>v===i)){alert('Could not create a valid draw. Please try again.');return}
+ // Receiver i gets the wish from member order[i]. Names are not shown in the participant view.
+ g.assignments={};order.forEach((giver,receiver)=>g.assignments[receiver]=g.members[giver].wish);
+ g.drawn=true;save();render();alert('The random draw is complete!');
+}
+function showAssignment(){
+ const g=groups[currentCode],idx=document.getElementById('viewer').value,box=document.getElementById('assignment');
+ if(!g||idx==='' ){box.innerHTML='';return}
+ if(!g.drawn){box.innerHTML='<p class="note">Your assigned wish will appear here after the organizer starts the draw.</p>';return}
+ box.innerHTML=`<div class="result"><div class="gift">🎁</div><div class="note">YOUR SECRET GIFT ASSIGNMENT</div><div class="big">${esc(g.assignments[idx])}</div><p class="note">Only the gift wish is shown. The wish owner's name stays hidden.</p></div>`;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+</script>
+</body></html>
